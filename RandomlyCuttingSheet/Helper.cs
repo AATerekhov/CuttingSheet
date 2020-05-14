@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Tekla.Structures.Geometry3d;
 
 namespace RandomlyCuttingSheet
 {
@@ -19,7 +20,8 @@ namespace RandomlyCuttingSheet
             {
                 if (rooms.First().Count == 0)
                 {
-                    rooms.First().Add(item);
+                    item.TypeSurface = 1;
+                    rooms.First().Add( item);
                 }
                 else
                 {
@@ -31,7 +33,6 @@ namespace RandomlyCuttingSheet
                     {
                         if (room.CapacityCheck(item,out typeSurface))
                         {
-
                             if (item.BestColumn == -1)
                             {
                                 item.BestColumn = room.Number;
@@ -50,13 +51,10 @@ namespace RandomlyCuttingSheet
                     //размещение в столбце или создание нового
                     foreach (var room in rooms)
                     {
-                        if (room.CapacityCheck(item))
+                        if (room.Number == item.BestColumn)
                         {
-                            if (room.Number == item.BestColumn)
-                            {
-                                room.Add(item);
-                                break;
-                            }
+                            room.Add(item);
+                            break;
                         }
                         else
                         {
@@ -75,19 +73,124 @@ namespace RandomlyCuttingSheet
                     if (columAdd)
                     {
                         rooms.Add(new Room(rooms.Last().Number + 1,rooms.Last().Displacement(), widthMainPlate));
+                        item.TypeSurface = 1;
                         rooms.Last().Add(item);
                         columAdd = false;
                     }
                 }
-                //Перенос координат углов многоугольника
-                for (int i = 0; i < item.ContourPoints.Count; i++)
-                {
-                    item.ContourPoints[i].X += item.XOffset;
-                    item.ContourPoints[i].Y += item.YOffset;
-                }
+                
             }
 
             return orderByPlateList;
+        }
+
+        /// <summary>
+        /// Определение пересекаются ли многоугольники.
+        /// </summary>
+        /// <param name="pointListOne"></param>
+        /// <param name="pointListTwo"></param>
+        /// <returns></returns>
+        public static bool GetIntersectionPlate(List<Point> pointListOne, List<Point> pointListTwo)
+        {
+            var intersectionPlate = false;
+
+            List<LineSegment> segmentListOne = TransformationOfPointsInLineSegment(pointListOne);
+            List<LineSegment> segmentListTwo = TransformationOfPointsInLineSegment(pointListTwo);
+
+            foreach (var item in segmentListOne)
+            {
+                foreach (var segmentTwo in segmentListTwo)
+                {
+                    intersectionPlate = IntersectionSegmentToSegment(item, segmentTwo);
+                    if (intersectionPlate)
+                    {
+                        break;
+                    }
+                }
+                if (intersectionPlate)
+                {
+                    break;
+                }
+
+            }
+
+            
+            return intersectionPlate;
+        }
+
+        /// <summary>
+        /// Из списка точек возвращает список отрезков.
+        /// </summary>
+        /// <param name="pointList"></param>
+        /// <returns></returns>
+        public static List<LineSegment> TransformationOfPointsInLineSegment(List<Point> pointList)
+        {
+            List<LineSegment> segmentList = new List<LineSegment>();
+            var i = 1;
+            foreach (var point in pointList)
+            {
+                if (i != pointList.Count())
+                {
+                    segmentList.Add(new LineSegment(point,pointList[i]));
+                }
+                else
+                {
+                    segmentList.Add(new LineSegment(point, pointList[0]));
+                    break;
+                }
+                i++;
+            }
+            return segmentList;
+        }
+
+        /// <summary>
+        /// Определение пересекаются ли отрезки.
+        /// возвращает bool.
+        /// </summary>
+        /// <param name="segmentOne"></param>
+        /// <param name="segmentTwo"></param>
+        /// <returns></returns>
+        public static bool IntersectionSegmentToSegment(LineSegment segmentOne, LineSegment segmentTwo)
+        {
+            
+            Vector vectorOne = new Vector(segmentOne.Point2.X - segmentOne.Point1.X, segmentOne.Point2.Y - segmentOne.Point1.Y, segmentOne.Point2.Z - segmentOne.Point1.Z);
+            Vector vectorTwo = new Vector(segmentTwo.Point2.X - segmentTwo.Point1.X, segmentTwo.Point2.Y - segmentTwo.Point1.Y, segmentTwo.Point2.Z - segmentTwo.Point1.Z);
+
+            Vector vectorZ = vectorOne.Cross(vectorTwo);
+
+            GeometricPlane planeOne = new GeometricPlane(segmentOne.Point1, vectorOne, vectorZ);
+            GeometricPlane planeTwo = new GeometricPlane(segmentTwo.Point1,vectorTwo,vectorZ);
+
+            bool conditionOne;
+            bool conditionTwo;
+            var pointIntersectionOne = Intersection.LineSegmentToPlane(segmentOne, planeTwo);
+            var pointIntersectionTwo = Intersection.LineSegmentToPlane(segmentTwo,planeOne);
+            if (pointIntersectionOne == null)
+            {
+                conditionOne = false;
+            }
+            else 
+            {
+                conditionOne = true;
+            }
+
+            if (pointIntersectionTwo == null)
+            {
+                conditionTwo = false;
+            }
+            else 
+            {
+                conditionTwo = true;
+            }
+
+            if (conditionOne && conditionTwo)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
     }
 }

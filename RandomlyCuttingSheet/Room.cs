@@ -15,7 +15,7 @@ namespace RandomlyCuttingSheet
 
         public int Count => roomPlates.Count;
 
-        public int WidthMainPlate { get; }
+        public int WidthMainPlate { get; } //Ширина полубесконечной полосы.
 
         int widthRoom = 0;
 
@@ -41,7 +41,7 @@ namespace RandomlyCuttingSheet
         /// Добавление пластины в столбец.
         /// </summary>
         /// <param name="plate"></param>
-        public void Add(RandomlyPlate plate)
+        public void Add( RandomlyPlate plate)
         {
             if (plate == null)
             {
@@ -49,8 +49,8 @@ namespace RandomlyCuttingSheet
             }
             else
             {
-                roomPlates.Add(plate);
-                if (Floor.CapacityCheck(plate))
+                
+                if (plate.TypeSurface == 1)
                 {
                     if (Floor.Count == 0)
                     {
@@ -58,13 +58,15 @@ namespace RandomlyCuttingSheet
                         Ceiling.ColumnOffset += plate.Width;
                         widthRoom = plate.Width;
                     }
-                    Floor.Add(plate);
+                    Floor.Add(ref plate);
+                    roomPlates.Add(plate);
                     FullnessFloor = Floor.Fullness;
 
                 }
-                else if (CeilingCapacityCheck(plate))
+                else if (plate.TypeSurface == 2)
                 {
-                    Ceiling.Add(plate);
+                    Ceiling.Add(ref plate);
+                    roomPlates.Add(plate);
                     FullnessCeiling = Ceiling.Fullness;
                 }
             }
@@ -75,25 +77,6 @@ namespace RandomlyCuttingSheet
         /// </summary>
         /// <param name="plate"></param>
         /// <returns></returns>
-        public bool CapacityCheck(RandomlyPlate plate)
-        {
-            if (plate == null)
-            {
-                throw new ArgumentNullException(nameof(plate), "Plate is Null");
-            }
-            else
-            {
-                if (Floor.CapacityCheck(plate))
-                {
-                    return true;
-                }
-                else
-                {
-                   return CeilingCapacityCheck(plate);
-                }
-            }
-        }
-        
         public bool CapacityCheck(RandomlyPlate plate, out int typeSurface)
         {
             if (plate == null)
@@ -111,44 +94,61 @@ namespace RandomlyCuttingSheet
             }
         }
 
-        private bool CeilingCapacityCheck(RandomlyPlate plate)
-        {
-            bool search = false;
-            int hightFloor = 0;
-            foreach (var item in Floor.Plates)
-            {
-                if ((hightFloor + plate.Height + Ceiling.HeightColumn <= Floor.WidthMainPlate) && (item.Width + plate.Width <= widthRoom))
-                {
-                    search = true;
-                    break;
-                }
-                hightFloor += item.Height;
-            }
-
-            return search;
-        }
-
+        /// <summary>
+        /// Проверка вместимости потолка
+        /// </summary>
+        /// <param name="plate"></param>
+        /// <returns></returns>
         private bool CeilingCapacityCheck(RandomlyPlate plate, out int typeSurface)
         {
-            typeSurface = 0;
-            bool search = false;
-            int hightFloor = 0;
-            foreach (var item in Floor.Plates)
+            typeSurface = 2;
+            bool search = true; //Поиск.
+            if (Ceiling.Plates.Count == 0)
             {
-                if ((hightFloor + plate.Height + Ceiling.HeightColumn <= Floor.WidthMainPlate) && (item.Width + plate.Width <= widthRoom))
+                plate.YOffset = Ceiling.CeilingOffsett - plate.Height;
+                plate.XOffset = Ceiling.ColumnOffset - plate.Width;
+                ColumnPlate.TransferCoordinates(ref plate);
+
+                foreach (var item in Floor.Plates)
                 {
-                    typeSurface = 2;
-                    search = true;
-                    break;
+                    if (Helper.GetIntersectionPlate(plate.ContourPoints, item.ContourPoints))
+                    {
+                        typeSurface = 0;
+                        search = false;
+                        break;
+                    }
                 }
-                hightFloor += item.Height;
+
+                plate.YOffset = -(Ceiling.CeilingOffsett - plate.Height);
+                plate.XOffset = -(Ceiling.ColumnOffset - plate.Width);
+                ColumnPlate.TransferCoordinates(ref plate);
             }
+            else
+            {
+                var delta = Ceiling.Rapprochement(plate);//величина сближения
+               
+                foreach (var item in Floor.Plates)
+                {
+                    if (Helper.GetIntersectionPlate(plate.ContourPoints, item.ContourPoints))
+                    {
+                        typeSurface = 0;
+                        search = false;
+                        break;
+                    }
+                }
+
+                plate.YOffset = -(Ceiling.CeilingOffsett - Ceiling.HeightColumn - plate.Height + delta);
+                plate.XOffset = -(Ceiling.ColumnOffset - plate.Width);
+                ColumnPlate.TransferCoordinates(ref plate);
+            }
+            
             return search;
         }
+
 
         public int Displacement()
         {
-            return Floor.Displacement();
+            return Floor.Displacement(); //перемещение
         }
 
     }

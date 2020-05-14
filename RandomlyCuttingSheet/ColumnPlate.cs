@@ -11,15 +11,25 @@ namespace RandomlyCuttingSheet
 
         public int Count => Plates.Count;
 
-        public virtual void Add(RandomlyPlate plate)
+        public virtual void Add(ref RandomlyPlate plate)
         {
-            if ((heightColumn + plate.Height) <= WidthMainPlate)
+            if (heightColumn == 0)
             {
-                Plates.Add(plate);
                 plate.YOffset = heightColumn;
                 plate.XOffset = ColumnOffset;
-                widthColumn = Math.Max(widthColumn, plate.Width);
+
+                TransferCoordinates(ref plate);
+
+                Plates.Add(plate);
+                widthColumn = plate.Width;
                 heightColumn += plate.Height;
+                Fullness = heightColumn / (double)WidthMainPlate;
+            }
+            else
+            {
+                var delta = Rapprochement(ref plate);
+                heightColumn = (heightColumn + plate.Height - delta);
+                Plates.Add(plate);
                 Fullness = heightColumn / (double)WidthMainPlate;
             }
         }
@@ -50,7 +60,11 @@ namespace RandomlyCuttingSheet
             {
                 throw new ArgumentNullException(nameof(plate), "Plate is Null");
             }
-            else if((heightColumn + plate.Height) <= WidthMainPlate)
+            else if (heightColumn == 0 && plate.Height <= WidthMainPlate)
+            {
+                return true;
+            }
+            else if( PlannedHeight(plate) <= WidthMainPlate)
             {
                 return true;
             }
@@ -60,9 +74,107 @@ namespace RandomlyCuttingSheet
             }
         }
 
+        /// <summary>
+        /// Перемещение колонки
+        /// </summary>
+        /// <returns></returns>
         public int Displacement()
         {
             return (widthColumn + ColumnOffset);
+        }
+
+        private int PlannedHeight( RandomlyPlate plate)
+        {
+            var plannedHeightColumn = heightColumn;
+
+            if (heightColumn != 0)
+            {
+                var delta = Rapprochement(plate);//величина сближения
+                plate.YOffset = -heightColumn + delta;
+                plate.XOffset = -ColumnOffset;
+                TransferCoordinates(ref plate);
+
+                plannedHeightColumn = (plannedHeightColumn + plate.Height - delta);
+                
+            }
+            else
+            {
+                plannedHeightColumn += plate.Height;
+            }
+            
+            return plannedHeightColumn;
+        }
+
+        /// <summary>
+        /// Сближение деталей по вертикали до пересечения, шаг 1 мм.
+        /// Возвращает дистанцию сближения, мм.
+        /// </summary>
+        /// <param name="plate"></param>
+        /// <returns></returns>
+        public virtual int Rapprochement(ref RandomlyPlate plate)
+        {
+            var rapprochement = 0;
+
+            plate.YOffset = heightColumn;
+            plate.XOffset = ColumnOffset;
+
+            TransferCoordinates(ref plate);
+            
+
+            while (!Helper.GetIntersectionPlate(plate.ContourPoints, Plates[Plates.Count-1].ContourPoints))
+            {
+                plate.YOffset--;
+                TransferCoordinates(ref plate);
+                rapprochement++;
+            }
+            plate.YOffset++;
+            TransferCoordinates(ref plate);
+            rapprochement--;
+
+            return rapprochement;
+        }
+
+        /// <summary>
+        /// Сближение пластин друг к другу по вертикале
+        /// </summary>
+        /// <param name="plate"></param>
+        /// <returns></returns>
+        public virtual int Rapprochement(RandomlyPlate plate)
+        {
+            var rapprochement = 0;
+
+            plate.YOffset = heightColumn;
+            plate.XOffset = ColumnOffset;
+
+            TransferCoordinates(ref plate);
+
+
+            while (!Helper.GetIntersectionPlate(plate.ContourPoints, Plates[Plates.Count - 1].ContourPoints))
+            {
+                plate.YOffset--;
+                TransferCoordinates(ref plate);
+                rapprochement++;
+            }
+            plate.YOffset++;
+            TransferCoordinates(ref plate);
+            rapprochement--;
+
+            return rapprochement;
+        }
+
+        /// <summary>
+        ///  Перенос координат углов многоугольника
+        /// </summary>
+        /// <param name="plate"></param>
+        public static void TransferCoordinates(ref RandomlyPlate plate)
+        {
+            for (int i = 0; i < plate.ContourPoints.Count; i++)
+            {
+                plate.ContourPoints[i].X += plate.XOffset;
+                plate.ContourPoints[i].Y += plate.YOffset;
+            }
+            plate.YOffset = 0;
+            plate.XOffset = 0;
         }
     }
 }

@@ -33,8 +33,8 @@ namespace RandomlyCuttingSheet
         {
             NumVertices = rand.Next(3,8);
             startPoint = point;
-            widthRegion = rand.Next(200, 1500);
-            heightRegion = rand.Next(500, 2000);
+            widthRegion = rand.Next(200, 500);
+            heightRegion = rand.Next(500, 1000);
 
 
             // Выбор случайных радиусов.
